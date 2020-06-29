@@ -7,6 +7,7 @@ import (
 	"github.com/kiranbhalerao123/gotter/models"
 	"github.com/kiranbhalerao123/gotter/utils"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -98,7 +99,7 @@ func (a AuthHandler) Signup(c *fiber.Ctx) {
 		Email:    u.Email,
 		Password: hashPassword,
 		UserName: u.UserName,
-		Posts:    []models.Post{},
+		Posts:    []primitive.ObjectID{},
 	}
 
 	// force MongoDB to always set its own generated ObjectIDs

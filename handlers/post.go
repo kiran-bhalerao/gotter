@@ -48,6 +48,7 @@ func (p PostHandler) CreatePost(c *fiber.Ctx) {
 		Description: inputs.Description,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
+		Comments:    []primitive.ObjectID{},
 		Author: models.Author{
 			ID:       user.ID,
 			UserName: user.UserName,
