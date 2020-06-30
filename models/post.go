@@ -19,4 +19,5 @@ type Post struct {
 	UpdatedAt   time.Time            `json:"updatedAt" bson:"updatedAt"`
 	Author      Author               `json:"author" bson:"author"`
 	Comments    []primitive.ObjectID `json:"comments" bson:"comments"`
+	Likes       []primitive.ObjectID `json:"likes" bson:"likes"`
 }

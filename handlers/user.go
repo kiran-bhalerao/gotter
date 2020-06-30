@@ -14,6 +14,7 @@ type UserHandlersInterface interface {
 	GetUser(ctx *fiber.Ctx) interface{}
 	UpdateUser(ctx *fiber.Ctx) interface{}
 	DeleteUser(ctx *fiber.Ctx) interface{}
+	FollowUnFollowUser(c *fiber.Ctx) interface{}
 }
 
 type UserHandler struct {
@@ -106,25 +107,67 @@ func (u UserHandler) UpdateUser(c *fiber.Ctx) {
 	}
 }
 
-func (u UserHandler) DeleteUser(c *fiber.Ctx) {
+func (u UserHandler) FollowUnFollowUser(c *fiber.Ctx) {
 	user := c.Locals("user").(models.User)
 
-	userId, err := primitive.ObjectIDFromHex(user.ID)
-
-	// the provided ID might be invalid ObjectID
+	currentUserId, err := primitive.ObjectIDFromHex(user.ID)
 	if err != nil {
-		c.Status(400).Send(err)
+		c.Status(fiber.StatusBadRequest).Send(err)
 		return
 	}
 
-	filter := bson.M{"_id": userId}
-
-	result, errors := u.UserColl.DeleteOne(c.Fasthttp, filter)
-
-	if result.DeletedCount < 1 || errors != nil {
-		c.Status(400).Send("Unable to delete user")
+	// I want to follow the another user, I'm following to anotherUserId
+	anotherUserId, err := primitive.ObjectIDFromHex(c.Params("id"))
+	if err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
 		return
 	}
 
-	c.Send("User deleted successfully")
+	// check the user exists or not
+	err = u.UserColl.FindOne(c.Fasthttp, bson.M{"_id": anotherUserId}).Decode(&models.User{})
+	if err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
+	}
+
+	// check for already following
+	err = u.UserColl.FindOne(c.Fasthttp, bson.M{"_id": anotherUserId, "followers": bson.M{"$in": bson.A{currentUserId}}}).Decode(&models.User{})
+
+	if err != nil && err.Error() != "mongo: no documents in result" {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
+	}
+
+	alreadyFollowing := err == nil || err.Error() != "mongo: no documents in result"
+
+	// follow the user
+	currentUserUpdate := bson.M{"$push": bson.M{"following": anotherUserId}}
+	anotherUserUpdate := bson.M{"$push": bson.M{"followers": currentUserId}}
+
+	if alreadyFollowing {
+		// unfollow the user
+		currentUserUpdate = bson.M{"$pull": bson.M{"following": anotherUserId}}
+		anotherUserUpdate = bson.M{"$pull": bson.M{"followers": currentUserId}}
+	}
+
+	// follow/unfollow the user
+	_, err = u.UserColl.UpdateOne(c.Fasthttp, bson.M{"_id": currentUserId}, currentUserUpdate)
+	if err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
+	}
+
+	// add/remove from another users followers[]
+	_, err = u.UserColl.UpdateOne(c.Fasthttp, bson.M{"_id": anotherUserId}, anotherUserUpdate)
+	if err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
+	}
+
+	message := "Followed the user"
+	if alreadyFollowing {
+		message = "UnFollowed the user"
+	}
+
+	c.Status(fiber.StatusOK).Send(message)
 }

@@ -4,11 +4,11 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber"
+	conf "github.com/kiranbhalerao123/gotter/config"
 	"github.com/kiranbhalerao123/gotter/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type CommentHandler struct {
@@ -100,13 +100,7 @@ func (CH CommentHandler) UpdateComment(c *fiber.Ctx) {
 
 	filter := bson.M{"_id": commentId, "user._id": user.ID}
 	update := bson.M{"$set": bson.M{"message": body.Comment}}
-	upsert := true
-	after := options.After
-	opt := options.FindOneAndUpdateOptions{
-		ReturnDocument: &after,
-		Upsert:         &upsert,
-	}
-	err = CH.CommentColl.FindOneAndUpdate(c.Fasthttp, filter, update, &opt).Decode(&comment)
+	err = CH.CommentColl.FindOneAndUpdate(c.Fasthttp, filter, update, &conf.MongoOps.New).Decode(&comment)
 
 	if err != nil {
 		c.Status(fiber.StatusBadRequest).Send(err)

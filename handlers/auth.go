@@ -96,10 +96,12 @@ func (a AuthHandler) Signup(c *fiber.Ctx) {
 	hashPassword := p.Hash()
 
 	user := models.User{
-		Email:    u.Email,
-		Password: hashPassword,
-		UserName: u.UserName,
-		Posts:    []primitive.ObjectID{},
+		Email:     u.Email,
+		Password:  hashPassword,
+		UserName:  u.UserName,
+		Posts:     []primitive.ObjectID{},
+		Following: []primitive.ObjectID{},
+		Followers: []primitive.ObjectID{},
 	}
 
 	// force MongoDB to always set its own generated ObjectIDs

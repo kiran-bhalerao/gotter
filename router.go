@@ -16,16 +16,17 @@ func init() {
 	u := handle.UserHandler{UserColl: conf.Mongo.DB.Collection("users")}
 	router.Get("/user", middle.WithGuard, middle.WithUser, u.GetUser)
 	router.Put("/user", middle.WithGuard, middle.WithUser, u.UpdateUser)
-	router.Delete("/user", middle.WithGuard, middle.WithUser, u.DeleteUser)
+	router.Post("/user/:id", middle.WithGuard, middle.WithUser, u.FollowUnFollowUser)
 
 	p := handle.PostHandler{
-		UserColl: conf.Mongo.DB.Collection("users"),
-		PostColl: conf.Mongo.DB.Collection("posts"),
+		UserColl:    conf.Mongo.DB.Collection("users"),
+		PostColl:    conf.Mongo.DB.Collection("posts"),
+		CommentColl: conf.Mongo.DB.Collection("comments"),
 	}
 	router.Post("/post", middle.WithGuard, middle.WithUser, p.CreatePost)
 	router.Put("/post/:id", middle.WithGuard, middle.WithUser, p.UpdatePost)
 	router.Delete("/post/:id", middle.WithGuard, middle.WithUser, p.DeletePost)
-	router.Delete("/post", middle.WithGuard, middle.WithUser, p.DeleteAllPost)
+	router.Post("/post/:id", middle.WithGuard, middle.WithUser, p.LikeDislikePost)
 
 	c := handle.CommentHandler{
 		CommentColl: conf.Mongo.DB.Collection("comments"),

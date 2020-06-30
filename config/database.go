@@ -18,7 +18,12 @@ type MongoInstance struct {
 	DB     *mongo.Database
 }
 
+type MongoOptions struct {
+	New options.FindOneAndUpdateOptions
+}
+
 var Mongo MongoInstance
+var MongoOps MongoOptions
 
 func init() {
 	// Database settings
@@ -52,5 +57,17 @@ func init() {
 		Client: client,
 		DB:     db,
 	}
+
+	// setup some options var
+	upsert := true
+	after := options.After
+	opt := options.FindOneAndUpdateOptions{
+		ReturnDocument: &after,
+		Upsert:         &upsert,
+	}
+	MongoOps = MongoOptions{
+		New: opt,
+	}
+
 	fmt.Println("Connected to MongoDB!")
 }

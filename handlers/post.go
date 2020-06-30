@@ -16,12 +16,13 @@ type PostHandlerIntreface interface {
 	CreatePost(c *fiber.Ctx) interface{}
 	UpdatePost(c *fiber.Ctx) interface{}
 	DeletePost(c *fiber.Ctx) interface{}
-	DeleteAllPost(c *fiber.Ctx) interface{}
+	LikeDislikePost(c *fiber.Ctx) interface{}
 }
 
 type PostHandler struct {
-	PostColl *mongo.Collection
-	UserColl *mongo.Collection
+	PostColl    *mongo.Collection
+	UserColl    *mongo.Collection
+	CommentColl *mongo.Collection
 }
 
 func (p PostHandler) CreatePost(c *fiber.Ctx) {
@@ -49,6 +50,7 @@ func (p PostHandler) CreatePost(c *fiber.Ctx) {
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 		Comments:    []primitive.ObjectID{},
+		Likes:       []primitive.ObjectID{},
 		Author: models.Author{
 			ID:       user.ID,
 			UserName: user.UserName,
@@ -156,7 +158,13 @@ func (p PostHandler) DeletePost(c *fiber.Ctx) {
 	update := bson.M{"$pull": bson.M{"posts": postId}}
 
 	_, err = p.UserColl.UpdateOne(c.Fasthttp, filter, update)
+	if err != nil {
+		c.Status(fiber.StatusInternalServerError).Send(err)
+		return
+	}
 
+	// delete all comments associated with this post
+	_, err = p.CommentColl.DeleteMany(c.Fasthttp, bson.M{"post": postId})
 	if err != nil {
 		c.Status(fiber.StatusInternalServerError).Send(err)
 		return
@@ -165,33 +173,66 @@ func (p PostHandler) DeletePost(c *fiber.Ctx) {
 	c.Status(fiber.StatusOK).Send("Post deleted successfully")
 }
 
-func (p PostHandler) DeleteAllPost(c *fiber.Ctx) {
+func (P PostHandler) LikeDislikePost(c *fiber.Ctx) {
 	user := c.Locals("user").(models.User)
 
-	filter := bson.M{"author._id": user.ID}
+	userId, err := primitive.ObjectIDFromHex(user.ID)
+	if err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
+	}
 
-	deleteResult, err := p.PostColl.DeleteMany(c.Fasthttp, filter)
+	postId, err := primitive.ObjectIDFromHex(c.Params("id"))
+	if err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
+	}
+
+	var post models.Post
+	// check whether the post exist or not
+	err = P.PostColl.FindOne(c.Fasthttp, bson.M{"_id": postId}).Decode(&post)
 
 	if err != nil {
-		c.Status(fiber.StatusInternalServerError).Send(err)
+		c.Status(fiber.StatusBadRequest).Send(err)
 		return
 	}
 
-	if deleteResult.DeletedCount < 1 {
-		c.Status(fiber.StatusNotModified).Send("Unable to delete any posts")
+	err = P.PostColl.FindOne(c.Fasthttp, bson.M{"_id": postId, "likes": bson.M{"$in": bson.A{userId}}}).Decode(&models.User{})
+
+	if err != nil && err.Error() != "mongo: no documents in result" {
+		c.Status(fiber.StatusBadRequest).Send(err)
 		return
 	}
 
-	// empty posts[] from users collection
-	filter = bson.M{"email": user.Email}
-	update := bson.M{"$set": bson.M{"posts": []models.Post{}}}
+	// inline
+	// notLikedYet := err != nil && err.Error() == "mongo: no documents in result"
+	// but i prefer more explicit way
 
-	_, err = p.UserColl.UpdateOne(c.Fasthttp, filter, update)
+	var notLikedYet bool
+	if err != nil && err.Error() == "mongo: no documents in result" {
+		notLikedYet = true
+	} else {
+		notLikedYet = false
+	}
+
+	filter := bson.M{"_id": postId}
+	update := bson.M{"$pull": bson.M{"likes": userId}}
+
+	if notLikedYet {
+		update = bson.M{"$push": bson.M{"likes": userId}}
+	}
+
+	_, err = P.PostColl.UpdateOne(c.Fasthttp, filter, update)
 
 	if err != nil {
-		c.Status(fiber.StatusInternalServerError).Send(err)
+		c.Status(fiber.StatusBadRequest).Send(err)
 		return
 	}
 
-	c.Status(fiber.StatusOK).Send("Posts deleted successfully")
+	message := "Post DisLiked"
+	if notLikedYet {
+		message = "Post Liked"
+	}
+
+	c.Status(fiber.StatusOK).Send(message)
 }
