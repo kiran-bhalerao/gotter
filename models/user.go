@@ -1,6 +1,9 @@
 package models
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import (
+	"github.com/kiranbhalerao123/gotter/utils"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
 
 type User struct {
 	ID        string               `json:"id,omitempty" bson:"_id,omitempty"`
@@ -15,4 +18,14 @@ type User struct {
 type Author struct {
 	ID       string `json:"id,omitempty" bson:"_id,omitempty"`
 	UserName string `json:"username" bson:"username"`
+}
+
+type SignupInputs struct {
+	Email    string `json:"email" bson:"email" valid:"email"`
+	UserName string `json:"username" bson:"username" valid:"length(3|30)"`
+	Password string `json:"password" bson:"password,omitempty" valid:"length(6|30)"`
+}
+
+func (i SignupInputs) Validate() error {
+	return utils.Validator(i)
 }

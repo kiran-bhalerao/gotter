@@ -9,15 +9,18 @@ import (
 func init() {
 	router := App.Group("/api/v1")
 
+	// Auth Routes
 	a := handle.AuthHandler{UsersColl: conf.Mongo.DB.Collection("users")}
 	router.Post("/signup", a.Signup)
 	router.Post("/login", a.Login)
 
+	// User Routes
 	u := handle.UserHandler{UserColl: conf.Mongo.DB.Collection("users")}
 	router.Get("/user", middle.WithGuard, middle.WithUser, u.GetUser)
 	router.Put("/user", middle.WithGuard, middle.WithUser, u.UpdateUser)
 	router.Post("/user/:id", middle.WithGuard, middle.WithUser, u.FollowUnFollowUser)
 
+	// Post Routes
 	p := handle.PostHandler{
 		UserColl:    conf.Mongo.DB.Collection("users"),
 		PostColl:    conf.Mongo.DB.Collection("posts"),
@@ -28,6 +31,7 @@ func init() {
 	router.Delete("/post/:id", middle.WithGuard, middle.WithUser, p.DeletePost)
 	router.Post("/post/:id", middle.WithGuard, middle.WithUser, p.LikeDislikePost)
 
+	// Comment Routes
 	c := handle.CommentHandler{
 		CommentColl: conf.Mongo.DB.Collection("comments"),
 		PostColl:    conf.Mongo.DB.Collection("posts"),

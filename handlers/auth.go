@@ -11,6 +11,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+// These interfaces aren't necessary,
+// but i kept it to keep track for what methods do we have.
 type AuthHandlerInterface interface {
 	Login(ctx *fiber.Ctx) interface{}
 	Signup(ctx *fiber.Ctx) interface{}
@@ -68,13 +70,21 @@ func (a AuthHandler) Login(c *fiber.Ctx) {
 }
 
 func (a AuthHandler) Signup(c *fiber.Ctx) {
-	u := new(models.User)
+	inputs := new(models.SignupInputs)
 
-	if err := c.BodyParser(u); err != nil {
-		log.Fatal(err)
+	// parse body inputs
+	if err := c.BodyParser(inputs); err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
 	}
 
-	query := bson.D{{Key: "email", Value: u.Email}}
+	// validate inputs
+	if err := inputs.Validate(); err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
+	}
+
+	query := bson.D{{Key: "email", Value: inputs.Email}}
 
 	existingUser := new(models.User)
 	err := a.UsersColl.FindOne(c.Fasthttp, query).Decode(existingUser)
@@ -92,13 +102,13 @@ func (a AuthHandler) Signup(c *fiber.Ctx) {
 		return
 	}
 
-	p := utils.Password{Password: u.Password}
+	p := utils.Password{Password: inputs.Password}
 	hashPassword := p.Hash()
 
 	user := models.User{
-		Email:     u.Email,
+		Email:     inputs.Email,
 		Password:  hashPassword,
-		UserName:  u.UserName,
+		UserName:  inputs.UserName,
 		Posts:     []primitive.ObjectID{},
 		Following: []primitive.ObjectID{},
 		Followers: []primitive.ObjectID{},

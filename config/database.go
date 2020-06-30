@@ -2,7 +2,6 @@ package config
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"time"
 
@@ -68,6 +67,4 @@ func init() {
 	MongoOps = MongoOptions{
 		New: opt,
 	}
-
-	fmt.Println("Connected to MongoDB!")
 }

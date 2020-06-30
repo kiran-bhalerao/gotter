@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"log"
 	"time"
 
 	"github.com/gofiber/fiber"
@@ -60,7 +59,8 @@ func (p PostHandler) CreatePost(c *fiber.Ctx) {
 	insertionResult, err := p.PostColl.InsertOne(c.Fasthttp, post)
 
 	if err != nil {
-		log.Fatal(err)
+		c.Status(fiber.StatusInternalServerError).Send(err)
+		return
 	}
 
 	// update the users collection, put post id inside posts[]
@@ -93,6 +93,7 @@ func (p PostHandler) UpdatePost(c *fiber.Ctx) {
 	postId, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
 		c.Status(fiber.StatusInternalServerError).Send(err)
+		return
 	}
 
 	var inputs models.PostInput
@@ -144,6 +145,7 @@ func (p PostHandler) DeletePost(c *fiber.Ctx) {
 
 	if err != nil {
 		c.Status(fiber.StatusBadRequest).Send(err)
+		return
 	}
 
 	filter := bson.M{"_id": postId, "author._id": user.ID}
@@ -151,6 +153,7 @@ func (p PostHandler) DeletePost(c *fiber.Ctx) {
 
 	if e != nil || deleteResult.DeletedCount < 1 {
 		c.Status(fiber.StatusInternalServerError).Send("Unable to delete post")
+		return
 	}
 
 	// pull out postId from users collection
