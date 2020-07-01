@@ -23,22 +23,33 @@ type AuthHandler struct {
 }
 
 func (a AuthHandler) Login(c *fiber.Ctx) {
-	u := new(models.User)
+	u := new(models.LoginInputs)
 
 	if err := c.BodyParser(u); err != nil {
-		log.Fatal(err)
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
 	}
 
 	// get the user by email
 	user := new(models.User)
 
-	filter := bson.D{{Key: "email", Value: u.Email}}
+	filter := bson.M{"email": u.Email}
 	err := a.UsersColl.FindOne(c.Fasthttp, filter).Decode(user)
 
 	if err != nil {
 		c.Status(fiber.StatusUnauthorized).Send(fiber.Map{"message": "Invalid Credentials"})
 		return
 	}
+
+	// using cursor
+	// for curs.Next(c.Fasthttp) {
+	// 	err := curs.Decode(user)
+
+	// 	if err != nil {
+	// 		c.Status(fiber.StatusUnauthorized).Send(fiber.Map{"message": "Invalid Credentials"})
+	// 		return
+	// 	}
+	// }
 
 	isMatch := utils.Password{Password: u.Password}.Compare(user.Password)
 
