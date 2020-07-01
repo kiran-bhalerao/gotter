@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -24,7 +25,7 @@ type MongoOptions struct {
 var Mongo MongoInstance
 var MongoOps MongoOptions
 
-func init() {
+func SetupDB() {
 	// Database settings
 	dbName := utils.GoDotEnvVariable("DB_NAME")
 	mongoURI := utils.GoDotEnvVariable("DB_URI")
@@ -56,6 +57,8 @@ func init() {
 		Client: client,
 		DB:     db,
 	}
+
+	fmt.Println("Connected to MongoDB!")
 
 	// setup some options var
 	upsert := true

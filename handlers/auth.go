@@ -11,8 +11,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// These interfaces aren't necessary,
-// but i kept it to keep track for what methods do we have.
+// These interfaces doesn't necessary,
+// but i kept it to keep track of methods that the handlers has.
 type AuthHandlerInterface interface {
 	Login(ctx *fiber.Ctx) interface{}
 	Signup(ctx *fiber.Ctx) interface{}

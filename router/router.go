@@ -1,13 +1,15 @@
-package main
+package router
 
 import (
+	"github.com/gofiber/fiber"
 	conf "github.com/kiranbhalerao123/gotter/config"
 	handle "github.com/kiranbhalerao123/gotter/handlers"
 	middle "github.com/kiranbhalerao123/gotter/middlewares"
 )
 
-func init() {
-	router := App.Group("/api/v1")
+func SetupRouter(app *fiber.App) {
+	// Router Setup
+	router := app.Group("/api/v1")
 
 	// Auth Routes
 	a := handle.AuthHandler{UsersColl: conf.Mongo.DB.Collection("users")}

@@ -3,20 +3,17 @@ package main
 import (
 	"log"
 
-	"github.com/gofiber/cors"
-	"github.com/gofiber/fiber"
+	. "github.com/kiranbhalerao123/gotter/app"
+	. "github.com/kiranbhalerao123/gotter/config"
+	. "github.com/kiranbhalerao123/gotter/router"
 )
 
-var App *fiber.App
-
-func init() {
-	App = fiber.New()
-}
-
 func main() {
-	App.Use(cors.New())
+	app := SetupApp()
+	SetupDB()
+	SetupRouter(app)
 
-	if err := App.Listen(3000); err != nil {
+	if err := app.Listen(3000); err != nil {
 		log.Fatal(err)
 	}
 }
