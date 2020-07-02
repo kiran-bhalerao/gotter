@@ -2,18 +2,17 @@ package handlers
 
 import (
 	"github.com/gofiber/fiber"
+	. "github.com/kiranbhalerao123/gotter/config"
 	"github.com/kiranbhalerao123/gotter/models"
 	"github.com/kiranbhalerao123/gotter/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type UserHandlersInterface interface {
 	GetUser(ctx *fiber.Ctx) interface{}
 	UpdateUser(ctx *fiber.Ctx) interface{}
-	DeleteUser(ctx *fiber.Ctx) interface{}
 	FollowUnFollowUser(c *fiber.Ctx) interface{}
 }
 
@@ -42,7 +41,7 @@ func (u UserHandler) GetUser(c *fiber.Ctx) {
 		return
 	}
 
-	if err := c.Status(201).JSON(usr); err != nil {
+	if err := c.Status(200).JSON(usr); err != nil {
 		c.Status(500).Send(err)
 		return
 	}
@@ -51,7 +50,7 @@ func (u UserHandler) GetUser(c *fiber.Ctx) {
 func (u UserHandler) UpdateUser(c *fiber.Ctx) {
 	user := c.Locals("user").(models.User)
 
-	var inputs models.User
+	var inputs models.UpdateInputs
 	var username = user.UserName
 	var password = user.Password
 
@@ -64,9 +63,7 @@ func (u UserHandler) UpdateUser(c *fiber.Ctx) {
 	}
 
 	if err := c.BodyParser(&inputs); err != nil {
-		if err := c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid data"}); err != nil {
-			c.Status(fiber.StatusInternalServerError).Send(err)
-		}
+		c.Status(fiber.StatusInternalServerError).Send(err)
 		return
 	}
 
@@ -84,24 +81,16 @@ func (u UserHandler) UpdateUser(c *fiber.Ctx) {
 	update := bson.M{"$set": bson.M{"username": username, "password": password}}
 	// update := bson.D{{Key: "$set", Value: bson.M{"username": username, "password": password}}} ✔️
 
-	// Create an instance of an options and set the desired options
-	upsert := true
-	after := options.After
-	opt := options.FindOneAndUpdateOptions{
-		ReturnDocument: &after,
-		Upsert:         &upsert,
-	}
-
 	var updatedUser models.User
 
-	err = u.UserColl.FindOneAndUpdate(c.Fasthttp, filter, update, &opt).Decode(&updatedUser)
+	err = u.UserColl.FindOneAndUpdate(c.Fasthttp, filter, update, &MongoOps.New).Decode(&updatedUser)
 
 	if err != nil {
 		c.Status(fiber.StatusInternalServerError).Send(err)
 		return
 	}
 
-	if err := c.Status(201).JSON(updatedUser); err != nil {
+	if err := c.Status(200).JSON(updatedUser); err != nil {
 		c.Status(500).Send(err)
 		return
 	}

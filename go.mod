@@ -11,5 +11,6 @@ require (
 	github.com/gofiber/jwt v0.1.0
 	github.com/stretchr/testify v1.6.1
 	go.mongodb.org/mongo-driver v1.3.4
+	github.com/stretchr/testify v1.3.0
 	golang.org/x/crypto v0.0.0-20190530122614-20be4c3c3ed5
 )

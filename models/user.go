@@ -31,6 +31,11 @@ type LoginInputs struct {
 	Password string `json:"password" bson:"password,omitempty" valid:"length(6|30)"`
 }
 
+type UpdateInputs struct {
+	UserName string `json:"username" bson:"username" valid:"length(3|30)"`
+	Password string `json:"password" bson:"password,omitempty" valid:"length(6|30)"`
+}
+
 func (i SignupInputs) Validate() error {
 	return utils.Validator(i)
 }

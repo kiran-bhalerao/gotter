@@ -5,9 +5,16 @@ setup:
 		go mod tidy
 
 .PHONY: test
-## test: runs go test with default values
+## test: runs go test with default values,  or file=filename
 test:
-	 cd handlers && godotenv -f ../.env.test go test
+ifdef file
+
+	 cd handlers && godotenv -f ../.env.test go test -goblin.run="$(file)" -goblin.timeout=300s
+else
+
+	 cd handlers && godotenv -f ../.env.test go test -goblin.timeout 300s
+endif
+
 
 .PHONY: run
 ## run: runs go run *.go

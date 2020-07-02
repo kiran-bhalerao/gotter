@@ -2,7 +2,6 @@ package config
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"time"
 
@@ -57,8 +56,6 @@ func SetupDB() {
 		Client: client,
 		DB:     db,
 	}
-
-	fmt.Println("Connected to MongoDB!")
 
 	// setup some options var
 	upsert := true
