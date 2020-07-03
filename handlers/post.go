@@ -16,6 +16,8 @@ type PostHandlerIntreface interface {
 	UpdatePost(c *fiber.Ctx) interface{}
 	DeletePost(c *fiber.Ctx) interface{}
 	LikeDislikePost(c *fiber.Ctx) interface{}
+	HomeTimeline(c *fiber.Ctx) interface{}
+	UserTimeline(c *fiber.Ctx) interface{}
 }
 
 type PostHandler struct {
@@ -238,4 +240,100 @@ func (P PostHandler) LikeDislikePost(c *fiber.Ctx) {
 	}
 
 	c.Status(fiber.StatusOK).Send(message)
+}
+
+func (p PostHandler) UserTimeline(c *fiber.Ctx) {
+	userId := c.Params("userId")
+	limit := int64(10)
+	page := int64(1)
+	skip := (page - 1) * limit
+
+	// get posts of the userId
+	cur, err := p.PostColl.Aggregate(c.Fasthttp, []bson.M{
+		{
+			"$match": bson.M{
+				"author._id": userId,
+			},
+		},
+		{
+			"$lookup": bson.M{
+				"from":         "comments",
+				"localField":   "comments",
+				"foreignField": "_id",
+				"as":           "comments",
+			},
+		},
+		{
+			"$unwind": bson.M{
+				"path":                       "$comments",
+				"preserveNullAndEmptyArrays": true,
+			},
+		},
+		{
+			"$group": bson.M{
+				"_id":         "$_id",
+				"title":       bson.M{"$first": "$title"},
+				"description": bson.M{"$first": "$description"},
+				"createdAt":   bson.M{"$first": "$createdAt"},
+				"author":      bson.M{"$first": "$author"},
+				"likes":       bson.M{"$first": "$likes"},
+				"comments":    bson.M{"$addToSet": "$comments"},
+			},
+		},
+		{"$sort": bson.M{"createdAt": -1}},
+		{
+			"$skip": skip,
+		},
+		{
+			"$limit": limit,
+		},
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
+	}
+
+	type Post struct {
+		ID          string               `json:"id,omitempty" bson:"_id,omitempty"`
+		Title       string               `json:"title" bson:"title"`
+		Description string               `json:"description" bson:"description"`
+		CreatedAt   time.Time            `json:"createdAt" bson:"createdAt"`
+		UpdatedAt   time.Time            `json:"updatedAt" bson:"updatedAt"`
+		Author      models.Author        `json:"author" bson:"author"`
+		Comments    []models.Comment     `json:"comments" bson:"comments"`
+		Likes       []primitive.ObjectID `json:"likes" bson:"likes"`
+	}
+
+	var posts []Post
+
+	for cur.Next(c.Fasthttp) {
+		var post Post
+		err := cur.Decode(&post)
+
+		if err != nil {
+			c.Status(fiber.StatusBadRequest).Send(err)
+			return
+		}
+		posts = append(posts, post)
+	}
+
+	if err := cur.Err(); err != nil {
+		if err != nil {
+			c.Status(fiber.StatusBadRequest).Send(err)
+			return
+		}
+	}
+
+	// Close the cursor once finished
+	cur.Close(c.Fasthttp)
+	err = c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"posts": posts,
+		"count": len(posts),
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
+	}
 }

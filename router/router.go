@@ -32,6 +32,7 @@ func SetupRouter(app *fiber.App) {
 	router.Put("/post/:id", middle.WithGuard, middle.WithUser, p.UpdatePost)
 	router.Delete("/post/:id", middle.WithGuard, middle.WithUser, p.DeletePost)
 	router.Post("/post/:id", middle.WithGuard, middle.WithUser, p.LikeDislikePost)
+	router.Get("/post/:userId", p.UserTimeline)
 
 	// Comment Routes
 	c := handle.CommentHandler{

@@ -24,7 +24,7 @@ run:
 .PHONY: watch
 ## watch: runs go run *.go in watch mode
 watch:
-	nodemon --exec godotenv -f ./.env go run *.go --signal SIGTERM
+	nodemon --legacy-watch . -e go --exec "godotenv -f ./.env go run main.go" --signal SIGTERM
 
 .PHONY: help
 ## help: prints this help message
