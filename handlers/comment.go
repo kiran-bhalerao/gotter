@@ -20,6 +20,7 @@ type CommentHandlerInterface interface {
 	CommentPost(c *fiber.Ctx) interface{}
 	UpdateComment(c *fiber.Ctx) interface{}
 	DeleteComment(c *fiber.Ctx) interface{}
+	LikeDislikeComment(c *fiber.Ctx) interface{}
 }
 
 func (CH CommentHandler) CommentPost(c *fiber.Ctx) {
@@ -53,6 +54,7 @@ func (CH CommentHandler) CommentPost(c *fiber.Ctx) {
 		Message:   body.Message,
 		CreatedAt: time.Now(),
 		Post:      postId,
+		Likes:     []primitive.ObjectID{},
 		User:      models.Author{ID: user.ID, UserName: user.UserName},
 	}
 
@@ -143,4 +145,64 @@ func (CH CommentHandler) DeleteComment(c *fiber.Ctx) {
 		return
 	}
 	c.Status(fiber.StatusOK).Send("Comment deleted successfully")
+}
+
+func (CH CommentHandler) LikeDislikeComment(c *fiber.Ctx) {
+	user := c.Locals("user").(models.User)
+
+	userId, err := primitive.ObjectIDFromHex(user.ID)
+	if err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
+	}
+
+	commentId, err := primitive.ObjectIDFromHex(c.Params("id"))
+	if err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
+	}
+
+	var comment models.Comment
+	// check whether the comment exists or not
+	err = CH.CommentColl.FindOne(c.Fasthttp, bson.M{"_id": commentId}).Decode(&comment)
+	if err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
+	}
+
+	// check whether the user already liked the comment
+	err = CH.CommentColl.FindOne(c.Fasthttp, bson.M{"_id": commentId, "likes": bson.M{"$in": bson.A{userId}}}).Decode(&models.Comment{})
+
+	var alreadyLiked bool
+
+	if err == nil {
+		alreadyLiked = true
+	} else {
+		if err.Error() != "mongo: no documents in result" {
+			c.Status(fiber.StatusBadRequest).Send(err)
+			return
+		}
+	}
+
+	// update the comment doc
+	filter := bson.M{"_id": commentId}
+	update := bson.M{"$push": bson.M{"likes": userId}}
+
+	if alreadyLiked {
+		update = bson.M{"$pull": bson.M{"likes": userId}}
+	}
+
+	_, err = CH.CommentColl.UpdateOne(c.Fasthttp, filter, update)
+
+	if err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
+	}
+
+	message := "Comment Liked"
+	if alreadyLiked {
+		message = "Comment DisLiked"
+	}
+
+	c.Status(fiber.StatusOK).Send(message)
 }

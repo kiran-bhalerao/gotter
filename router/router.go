@@ -42,4 +42,5 @@ func SetupRouter(app *fiber.App) {
 	router.Post("/comment", middle.WithGuard, middle.WithUser, c.CommentPost)
 	router.Put("/comment/:id", middle.WithGuard, middle.WithUser, c.UpdateComment)
 	router.Delete("/comment/:id", middle.WithGuard, middle.WithUser, c.DeleteComment)
+	router.Post("/comment/:id", middle.WithGuard, middle.WithUser, c.LikeDislikeComment)
 }

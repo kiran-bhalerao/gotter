@@ -250,43 +250,32 @@ func (p PostHandler) UserTimeline(c *fiber.Ctx) {
 
 	// get posts of the userId
 	cur, err := p.PostColl.Aggregate(c.Fasthttp, []bson.M{
-		{
-			"$match": bson.M{
-				"author._id": userId,
-			},
-		},
+		{"$match": bson.M{"author._id": userId}},
 		{
 			"$lookup": bson.M{
-				"from":         "comments",
-				"localField":   "comments",
-				"foreignField": "_id",
-				"as":           "comments",
+				"from": "comments",
+				"let":  bson.M{"comments": "$comments"},
+				"pipeline": bson.A{
+					bson.M{"$match": bson.M{"$expr": bson.M{"$in": bson.A{"$_id", "$$comments"}}}},
+					bson.M{"$project": bson.M{
+						"_id":       1,
+						"message":   1,
+						"post":      1,
+						"user":      1,
+						"createdAt": 1,
+						"likes":     1,
+						"count":     bson.M{"$size": "$likes"},
+					}},
+					bson.M{"$sort": bson.M{"count": -1}},
+					bson.M{"$limit": limit},
+					bson.M{"$project": bson.M{"count": 0}},
+				},
+				"as": "comments",
 			},
 		},
-		{
-			"$unwind": bson.M{
-				"path":                       "$comments",
-				"preserveNullAndEmptyArrays": true,
-			},
-		},
-		{
-			"$group": bson.M{
-				"_id":         "$_id",
-				"title":       bson.M{"$first": "$title"},
-				"description": bson.M{"$first": "$description"},
-				"createdAt":   bson.M{"$first": "$createdAt"},
-				"author":      bson.M{"$first": "$author"},
-				"likes":       bson.M{"$first": "$likes"},
-				"comments":    bson.M{"$addToSet": "$comments"},
-			},
-		},
-		{"$sort": bson.M{"createdAt": -1}},
-		{
-			"$skip": skip,
-		},
-		{
-			"$limit": limit,
-		},
+		{"$sort": bson.M{"createdAt": 1}},
+		{"$skip": skip},
+		{"$limit": limit},
 	})
 
 	if err != nil {
@@ -308,8 +297,9 @@ func (p PostHandler) UserTimeline(c *fiber.Ctx) {
 	var posts []Post
 
 	for cur.Next(c.Fasthttp) {
+		// raw, err := cur.Current.Elements()
 		var post Post
-		err := cur.Decode(&post)
+		err = cur.Decode(&post)
 
 		if err != nil {
 			c.Status(fiber.StatusBadRequest).Send(err)
