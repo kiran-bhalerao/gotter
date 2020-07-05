@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber"
@@ -246,6 +247,7 @@ func (p PostHandler) UserTimeline(c *fiber.Ctx) {
 	userId := c.Params("userId")
 	limit := int64(10)
 	page := int64(1)
+
 	skip := (page - 1) * limit
 
 	// get posts of the userId
@@ -273,7 +275,7 @@ func (p PostHandler) UserTimeline(c *fiber.Ctx) {
 				"as": "comments",
 			},
 		},
-		{"$sort": bson.M{"createdAt": 1}},
+		{"$sort": bson.M{"createdAt": -1}},
 		{"$skip": skip},
 		{"$limit": limit},
 	})
@@ -283,22 +285,11 @@ func (p PostHandler) UserTimeline(c *fiber.Ctx) {
 		return
 	}
 
-	type Post struct {
-		ID          string               `json:"id,omitempty" bson:"_id,omitempty"`
-		Title       string               `json:"title" bson:"title"`
-		Description string               `json:"description" bson:"description"`
-		CreatedAt   time.Time            `json:"createdAt" bson:"createdAt"`
-		UpdatedAt   time.Time            `json:"updatedAt" bson:"updatedAt"`
-		Author      models.Author        `json:"author" bson:"author"`
-		Comments    []models.Comment     `json:"comments" bson:"comments"`
-		Likes       []primitive.ObjectID `json:"likes" bson:"likes"`
-	}
-
-	var posts []Post
+	var posts []models.PostWithComment
 
 	for cur.Next(c.Fasthttp) {
 		// raw, err := cur.Current.Elements()
-		var post Post
+		var post models.PostWithComment
 		err = cur.Decode(&post)
 
 		if err != nil {
@@ -320,6 +311,194 @@ func (p PostHandler) UserTimeline(c *fiber.Ctx) {
 	err = c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"posts": posts,
 		"count": len(posts),
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
+	}
+}
+
+func (p PostHandler) HomeTimeline(c *fiber.Ctx) {
+	limit := int64(10)
+	page := int64(1)
+
+	userId, err := primitive.ObjectIDFromHex(c.Params("userId"))
+	if err != nil {
+		userId = primitive.NilObjectID
+	}
+
+	// get limit from query
+	lim, err := strconv.Atoi(c.Query("limit"))
+	if err == nil {
+		limit = int64(lim)
+	}
+
+	// get page from query
+	pag, err := strconv.Atoi(c.Query("page"))
+	if err == nil {
+		page = int64(pag)
+	}
+
+	skip := (page - 1) * limit
+	var query []primitive.M
+	var cur *mongo.Cursor
+
+	if userId != primitive.NilObjectID {
+		// if userId is provided then get this user's followings
+		// and with that followings get their posts
+
+		query = []bson.M{
+			{"$match": bson.M{"_id": userId}},
+			{"$lookup": bson.M{
+				"from": "users",
+				"let":  bson.M{"following": "$following"},
+				"pipeline": bson.A{
+					bson.M{"$match": bson.M{"$expr": bson.M{"$in": bson.A{"$_id", "$$following"}}}},
+					bson.M{"$lookup": bson.M{
+						"from": "posts",
+						"let":  bson.M{"posts": "$posts"},
+						"pipeline": bson.A{
+							bson.M{"$match": bson.M{"$expr": bson.M{"$in": bson.A{"$_id", "$$posts"}}}},
+							bson.M{"$lookup": bson.M{
+								"from": "comments",
+								"let":  bson.M{"comments": "$comments"},
+								"pipeline": bson.A{
+									bson.M{"$match": bson.M{"$expr": bson.M{"$in": bson.A{"$_id", "$$comments"}}}},
+									bson.M{"$project": bson.M{
+										"_id":       1,
+										"message":   1,
+										"post":      1,
+										"user":      1,
+										"createdAt": 1,
+										"likes":     1,
+										"count":     bson.M{"$size": "$likes"},
+									}},
+									bson.M{"$sort": bson.M{"count": -1}},
+									bson.M{"$limit": limit},
+									bson.M{"$project": bson.M{"count": 0}},
+								},
+								"as": "comments",
+							}},
+						},
+						"as": "posts",
+					}},
+					bson.M{"$unwind": bson.M{
+						"path":                       "$posts",
+						"preserveNullAndEmptyArrays": true,
+					}},
+				},
+				"as": "following",
+			}},
+			{"$unwind": bson.M{
+				"path":                       "$following",
+				"preserveNullAndEmptyArrays": true,
+			}},
+			{"$project": bson.M{"posts": "$following.posts"}},
+			{"$replaceRoot": bson.M{
+				"newRoot": bson.M{
+					"$mergeObjects": bson.A{"$posts", "$$ROOT"},
+				},
+			}},
+			{"$project": bson.M{"posts": 0}},
+			{"$sort": bson.M{"createdAt": -1}},
+			{"$skip": skip},
+			{"$facet": bson.M{
+				"count": bson.A{bson.M{"$count": "count"}},
+				"posts": bson.A{bson.M{"$limit": limit}},
+			}},
+			{"$project": bson.M{
+				"count": bson.M{"$arrayElemAt": bson.A{"$count", 0}},
+				"posts": 1,
+			}},
+			{"$project": bson.M{
+				"count": "$count.count",
+				"posts": 1,
+			}},
+		}
+
+		cur, err = p.UserColl.Aggregate(c.Fasthttp, query)
+	} else {
+		// userId is not provided
+		// get the latest posts from system
+
+		query = []bson.M{
+			{
+				"$lookup": bson.M{
+					"from": "comments",
+					"let":  bson.M{"comments": "$comments"},
+					"pipeline": bson.A{
+						bson.M{"$match": bson.M{"$expr": bson.M{"$in": bson.A{"$_id", "$$comments"}}}},
+						bson.M{"$project": bson.M{
+							"_id":       1,
+							"message":   1,
+							"post":      1,
+							"user":      1,
+							"createdAt": 1,
+							"likes":     1,
+							"count":     bson.M{"$size": "$likes"},
+						}},
+						bson.M{"$sort": bson.M{"count": -1}},
+						bson.M{"$limit": limit},
+						bson.M{"$project": bson.M{"count": 0}},
+					},
+					"as": "comments",
+				},
+			},
+			{"$sort": bson.M{"createdAt": -1}},
+			{"$skip": skip},
+			{"$facet": bson.M{
+				"count": bson.A{bson.M{"$count": "count"}},
+				"posts": bson.A{bson.M{"$limit": limit}},
+			}},
+			{"$project": bson.M{
+				"count": bson.M{"$arrayElemAt": bson.A{"$count", 0}},
+				"posts": 1,
+			}},
+			{"$project": bson.M{
+				"count": "$count.count",
+				"posts": 1,
+			}},
+		}
+
+		cur, err = p.PostColl.Aggregate(c.Fasthttp, query)
+	}
+
+	if err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
+	}
+
+	type Data struct {
+		Count int32                    `json:"count"`
+		Posts []models.PostWithComment `json:"posts"`
+	}
+
+	var data []Data
+
+	for cur.Next(c.Fasthttp) {
+		var d Data
+		err = cur.Decode(&d)
+
+		if err != nil {
+			c.Status(fiber.StatusBadRequest).Send(err)
+			return
+		}
+		data = append(data, d)
+	}
+
+	if err := cur.Err(); err != nil {
+		if err != nil {
+			c.Status(fiber.StatusBadRequest).Send(err)
+			return
+		}
+	}
+
+	// Close the cursor once finished
+	cur.Close(c.Fasthttp)
+	err = c.Status(fiber.StatusOK).JSON(Data{
+		Count: data[0].Count + int32(skip),
+		Posts: data[0].Posts,
 	})
 
 	if err != nil {
