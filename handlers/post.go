@@ -332,23 +332,28 @@ func (p PostHandler) HomeTimeline(c *fiber.Ctx) {
 	lim, err := strconv.Atoi(c.Query("limit"))
 	if err == nil {
 		limit = int64(lim)
+		if limit <= 0 {
+			limit = 10 // set to default
+		}
 	}
 
 	// get page from query
 	pag, err := strconv.Atoi(c.Query("page"))
 	if err == nil {
 		page = int64(pag)
+		if page <= 0 {
+			page = 1 // set to default
+		}
 	}
 
 	skip := (page - 1) * limit
-	var query []primitive.M
 	var cur *mongo.Cursor
 
 	if userId != primitive.NilObjectID {
 		// if userId is provided then get this user's followings
 		// and with that followings get their posts
 
-		query = []bson.M{
+		query := []bson.M{
 			{"$match": bson.M{"_id": userId}},
 			{"$lookup": bson.M{
 				"from": "users",
@@ -422,7 +427,7 @@ func (p PostHandler) HomeTimeline(c *fiber.Ctx) {
 		// userId is not provided
 		// get the latest posts from system
 
-		query = []bson.M{
+		query := []bson.M{
 			{
 				"$lookup": bson.M{
 					"from": "comments",

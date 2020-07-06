@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber"
@@ -21,6 +22,7 @@ type CommentHandlerInterface interface {
 	UpdateComment(c *fiber.Ctx) interface{}
 	DeleteComment(c *fiber.Ctx) interface{}
 	LikeDislikeComment(c *fiber.Ctx) interface{}
+	GetComment(c *fiber.Ctx) interface{}
 }
 
 func (CH CommentHandler) CommentPost(c *fiber.Ctx) {
@@ -205,4 +207,97 @@ func (CH CommentHandler) LikeDislikeComment(c *fiber.Ctx) {
 	}
 
 	c.Status(fiber.StatusOK).Send(message)
+}
+
+func (CH CommentHandler) GetComment(c *fiber.Ctx) {
+	limit := int64(10)
+	page := int64(1)
+
+	// get limit from query
+	lim, err := strconv.Atoi(c.Query("limit"))
+	if err == nil {
+		limit = int64(lim)
+		if limit <= 0 {
+			limit = 10 // set to default
+		}
+	}
+
+	// get page from query
+	pag, err := strconv.Atoi(c.Query("page"))
+	if err == nil {
+		page = int64(pag)
+		if page <= 0 {
+			page = 1 // set to default
+		}
+	}
+
+	skip := (page - 1) * limit
+
+	cur, err := CH.CommentColl.Aggregate(c.Fasthttp, []bson.M{
+		{"$project": bson.M{
+			"_id":       1,
+			"message":   1,
+			"post":      1,
+			"user":      1,
+			"createdAt": 1,
+			"likes":     1,
+			"count":     bson.M{"$size": "$likes"},
+		}},
+		{"$sort": bson.M{"count": -1}},
+		{"$skip": skip},
+		{"$facet": bson.M{
+			"count":    bson.A{bson.M{"$count": "count"}},
+			"comments": bson.A{bson.M{"$limit": limit}},
+		}},
+		{"$project": bson.M{
+			"count":    bson.M{"$arrayElemAt": bson.A{"$count", 0}},
+			"comments": 1,
+		}},
+		{"$project": bson.M{
+			"count":    "$count.count",
+			"comments": 1,
+		}},
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
+	}
+
+	type Data struct {
+		Count    int32            `json:"count"`
+		Comments []models.Comment `json:"comments"`
+	}
+
+	var data []Data
+
+	for cur.Next(c.Fasthttp) {
+		var d Data
+		err = cur.Decode(&d)
+
+		if err != nil {
+			c.Status(fiber.StatusBadRequest).Send(err)
+			return
+		}
+		data = append(data, d)
+	}
+
+	if err := cur.Err(); err != nil {
+		if err != nil {
+			c.Status(fiber.StatusBadRequest).Send(err)
+			return
+		}
+	}
+
+	// Close the cursor once finished
+	cur.Close(c.Fasthttp)
+	err = c.Status(fiber.StatusOK).JSON(Data{
+		Count:    data[0].Count + int32(skip),
+		Comments: data[0].Comments,
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
+	}
 }

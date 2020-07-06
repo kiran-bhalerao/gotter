@@ -2,9 +2,9 @@ package router
 
 import (
 	"github.com/gofiber/fiber"
-	conf "github.com/kiranbhalerao123/gotter/config"
-	handle "github.com/kiranbhalerao123/gotter/handlers"
-	middle "github.com/kiranbhalerao123/gotter/middlewares"
+	. "github.com/kiranbhalerao123/gotter/config"
+	. "github.com/kiranbhalerao123/gotter/handlers"
+	. "github.com/kiranbhalerao123/gotter/middlewares"
 )
 
 func SetupRouter(app *fiber.App) {
@@ -12,36 +12,37 @@ func SetupRouter(app *fiber.App) {
 	router := app.Group("/api/v1")
 
 	// Auth Routes
-	a := handle.AuthHandler{UsersColl: conf.Mongo.DB.Collection("users")}
-	router.Post("/signup", a.Signup)
-	router.Post("/login", a.Login)
+	_authHandler := AuthHandler{UsersColl: Mongo.DB.Collection("users")}
+	router.Post("/signup", _authHandler.Signup)
+	router.Post("/login", _authHandler.Login)
 
 	// User Routes
-	u := handle.UserHandler{UserColl: conf.Mongo.DB.Collection("users")}
-	router.Get("/user", middle.WithGuard, middle.WithUser, u.GetUser)
-	router.Put("/user", middle.WithGuard, middle.WithUser, u.UpdateUser)
-	router.Post("/user/:id", middle.WithGuard, middle.WithUser, u.FollowUnFollowUser)
+	_userHandler := UserHandler{UserColl: Mongo.DB.Collection("users")}
+	router.Get("/user", WithGuard, WithUser, _userHandler.GetUser)
+	router.Put("/user", WithGuard, WithUser, _userHandler.UpdateUser)
+	router.Post("/user/:id", WithGuard, WithUser, _userHandler.FollowUnFollowUser)
 
 	// Post Routes
-	p := handle.PostHandler{
-		UserColl:    conf.Mongo.DB.Collection("users"),
-		PostColl:    conf.Mongo.DB.Collection("posts"),
-		CommentColl: conf.Mongo.DB.Collection("comments"),
+	_postHandler := PostHandler{
+		UserColl:    Mongo.DB.Collection("users"),
+		PostColl:    Mongo.DB.Collection("posts"),
+		CommentColl: Mongo.DB.Collection("comments"),
 	}
-	router.Post("/post", middle.WithGuard, middle.WithUser, p.CreatePost)
-	router.Put("/post/:id", middle.WithGuard, middle.WithUser, p.UpdatePost)
-	router.Delete("/post/:id", middle.WithGuard, middle.WithUser, p.DeletePost)
-	router.Post("/post/:id", middle.WithGuard, middle.WithUser, p.LikeDislikePost)
-	router.Get("/post/timeline/user/:userId", p.UserTimeline)
-	router.Get("/post/timeline/home/:userId?", p.HomeTimeline)
+	router.Post("/post", WithGuard, WithUser, _postHandler.CreatePost)
+	router.Put("/post/:id", WithGuard, WithUser, _postHandler.UpdatePost)
+	router.Delete("/post/:id", WithGuard, WithUser, _postHandler.DeletePost)
+	router.Post("/post/:id", WithGuard, WithUser, _postHandler.LikeDislikePost)
+	router.Get("/post/timeline/user/:userId", _postHandler.UserTimeline)  // another users userId
+	router.Get("/post/timeline/home/:userId?", _postHandler.HomeTimeline) // current users userId (optional)
 
 	// Comment Routes
-	c := handle.CommentHandler{
-		CommentColl: conf.Mongo.DB.Collection("comments"),
-		PostColl:    conf.Mongo.DB.Collection("posts"),
+	_commentHandler := CommentHandler{
+		CommentColl: Mongo.DB.Collection("comments"),
+		PostColl:    Mongo.DB.Collection("posts"),
 	}
-	router.Post("/comment", middle.WithGuard, middle.WithUser, c.CommentPost)
-	router.Put("/comment/:id", middle.WithGuard, middle.WithUser, c.UpdateComment)
-	router.Delete("/comment/:id", middle.WithGuard, middle.WithUser, c.DeleteComment)
-	router.Post("/comment/:id", middle.WithGuard, middle.WithUser, c.LikeDislikeComment)
+	router.Get("/comment", _commentHandler.GetComment)
+	router.Post("/comment", WithGuard, WithUser, _commentHandler.CommentPost)
+	router.Put("/comment/:id", WithGuard, WithUser, _commentHandler.UpdateComment)
+	router.Delete("/comment/:id", WithGuard, WithUser, _commentHandler.DeleteComment)
+	router.Post("/comment/:id", WithGuard, WithUser, _commentHandler.LikeDislikeComment)
 }
