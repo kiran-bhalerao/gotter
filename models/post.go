@@ -3,12 +3,13 @@ package models
 import (
 	"time"
 
+	"github.com/kiranbhalerao123/gotter/utils"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type PostInput struct {
-	Title       string `json:"title" bson:"title"`
-	Description string `json:"description" bson:"description"`
+	Title       string `json:"title" bson:"title" valid:"length(3|30)"`
+	Description string `json:"description" bson:"description" valid:"length(3|300)"`
 }
 
 type Post struct {
@@ -31,4 +32,8 @@ type PostWithComment struct {
 	Author      Author               `json:"author" bson:"author"`
 	Comments    []Comment            `json:"comments" bson:"comments"`
 	Likes       []primitive.ObjectID `json:"likes" bson:"likes"`
+}
+
+func (i PostInput) Validate() error {
+	return utils.Validator(i)
 }

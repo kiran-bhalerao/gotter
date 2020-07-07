@@ -51,7 +51,7 @@ func WithUser(c *fiber.Ctx) {
 
 func jwtError(c *fiber.Ctx, err error) {
 	if err.Error() == "Missing or malformed JWT" {
-		if err := c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Missing or malformed JWT", "data": nil}); err != nil {
+		if err := c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "Missing or malformed JWT", "data": nil}); err != nil {
 			c.Status(500).Send(err)
 			return
 		}

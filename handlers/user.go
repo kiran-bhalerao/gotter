@@ -97,9 +97,10 @@ func (u UserHandler) UpdateUser(c *fiber.Ctx) {
 }
 
 /**
- * @params /:id
+ * @Params /:id
  *  - another users id
- * @mothod POST
+ * @Mothod POST
+ * @Protected ✔️
  */
 func (u UserHandler) FollowUnFollowUser(c *fiber.Ctx) {
 	user := c.Locals("user").(models.User)

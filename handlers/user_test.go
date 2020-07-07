@@ -32,8 +32,7 @@ func TestUserRoutes(t *testing.T) {
 		})
 
 		g.Describe("GET User Route Suits", func() {
-			g.It("returns 400 on invalid request", func() {
-				// http.Request
+			g.It("returns 401 on invalid request", func() {
 				req := httptest.NewRequest(
 					"GET",
 					"/api/v1/user",
@@ -41,7 +40,7 @@ func TestUserRoutes(t *testing.T) {
 				)
 
 				resp, _ := app.Test(req, -1)
-				g.Assert(400).Equal(resp.StatusCode)
+				g.Assert(401).Equal(resp.StatusCode)
 			})
 
 			g.It("returns user details on valid inputs", func() {

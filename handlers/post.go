@@ -27,6 +27,11 @@ type PostHandler struct {
 	CommentColl *mongo.Collection
 }
 
+/**
+ * @Body {title: string, description: string}
+ * @Mothod POST
+ * @Protected ✔️
+ */
 func (p PostHandler) CreatePost(c *fiber.Ctx) {
 	user := c.Locals("user").(models.User)
 
@@ -44,6 +49,12 @@ func (p PostHandler) CreatePost(c *fiber.Ctx) {
 			c.Status(fiber.StatusInternalServerError).Send(err)
 			return
 		}
+	}
+
+	// validate inputs
+	if err := inputs.Validate(); err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
 	}
 
 	post := models.Post{
