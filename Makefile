@@ -5,11 +5,11 @@ setup:
 		go mod tidy
 
 .PHONY: test
-## test: runs go test with default values,  or file=filename
+## test: runs go test with default values,  or pattern=pattern
 test:
-ifdef file
+ifdef pattern
 
-	 cd handlers && godotenv -f ../.env.test go test -goblin.run="$(file)" -goblin.timeout=300s
+	 cd handlers && godotenv -f ../.env.test go test -goblin.run="$(pattern)" -goblin.timeout=300s
 else
 
 	 cd handlers && godotenv -f ../.env.test go test -goblin.timeout 300s

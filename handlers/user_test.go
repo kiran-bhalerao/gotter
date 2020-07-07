@@ -85,7 +85,9 @@ func TestUserRoutes(t *testing.T) {
 				g.Assert(output.UserName).Equal(inputs.UserName)
 				assert.NotNil(t, output.ID)
 			})
+		})
 
+		g.Describe("Update User Route Suits", func() {
 			g.It("updates the user details", func() {
 				// first step is to signup the user
 				resp, inputs, _ := TSignup(app)
@@ -149,6 +151,75 @@ func TestUserRoutes(t *testing.T) {
 					Password: inputs.Password,
 				})
 				g.Assert(resp.StatusCode).Equal(401)
+			})
+		})
+
+		g.Describe("Follow/unfollow User Route Suits", func() {
+			g.It("follow the user and unfollow the user", func() {
+				// signup first user
+				resp, inputs, data := TSignup(app)
+				g.Assert(resp.StatusCode).Equal(201)
+
+				// signup second user
+				resp, inputs, _ = TSignup(app, TSignInputs{
+					Email:    "sec@user.com",
+					UserName: "sec_user",
+					Password: "password",
+				})
+				g.Assert(resp.StatusCode).Equal(201)
+
+				// login second user and get the token of it
+				resp, output := TLogin(app, TLoginInputs{
+					Email:    inputs.Email,
+					Password: inputs.Password,
+				})
+				g.Assert(resp.StatusCode).Equal(200)
+
+				// request to follow the first user with the token
+				req := MakeRequest(Req{
+					Method: "POST",
+					Target: "/api/v1/user/" + data.ID,
+					Options: Opt{
+						Header: Map{
+							"Authorization": "Bearer " + output.Data.Token,
+						},
+					},
+				})
+
+				var respData struct {
+					Message     string `json:"message"`
+					IsFollowing bool   `json:"isFollowing"`
+				}
+
+				resp, _ = app.Test(req, -1)
+
+				err := json.NewDecoder(resp.Body).Decode(&respData)
+				if err != nil {
+					panic(err)
+				}
+
+				g.Assert(respData.IsFollowing).Equal(true)
+				g.Assert(resp.StatusCode).Equal(200)
+
+				// request to unfollow the first user with the token
+				req = MakeRequest(Req{
+					Method: "POST",
+					Target: "/api/v1/user/" + data.ID,
+					Options: Opt{
+						Header: Map{
+							"Authorization": "Bearer " + output.Data.Token,
+						},
+					},
+				})
+
+				resp, _ = app.Test(req, -1)
+				err = json.NewDecoder(resp.Body).Decode(&respData)
+				if err != nil {
+					panic(err)
+				}
+
+				g.Assert(respData.IsFollowing).Equal(false)
+				g.Assert(resp.StatusCode).Equal(200)
 			})
 		})
 	})

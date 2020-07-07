@@ -22,7 +22,7 @@ type TSignInputs struct {
 	Password string `json:"password"`
 }
 
-func TSignup(app *fiber.App) (resp *http.Response, inputs TSignInputs, data TSignupOutput) {
+func TSignup(app *fiber.App, in ...TSignInputs) (resp *http.Response, inputs TSignInputs, data TSignupOutput) {
 	email := "kiran@gmail.com"
 	username := "kiran"
 	password := "password"
@@ -31,6 +31,10 @@ func TSignup(app *fiber.App) (resp *http.Response, inputs TSignInputs, data TSig
 		Email:    email,
 		Password: password,
 		UserName: username,
+	}
+
+	if len(in) > 0 {
+		inputs = in[0]
 	}
 
 	buf := new(bytes.Buffer)

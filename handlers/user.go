@@ -96,6 +96,11 @@ func (u UserHandler) UpdateUser(c *fiber.Ctx) {
 	}
 }
 
+/**
+ * @params /:id
+ *  - another users id
+ * @mothod POST
+ */
 func (u UserHandler) FollowUnFollowUser(c *fiber.Ctx) {
 	user := c.Locals("user").(models.User)
 
@@ -158,5 +163,11 @@ func (u UserHandler) FollowUnFollowUser(c *fiber.Ctx) {
 		message = "UnFollowed the user"
 	}
 
-	c.Status(fiber.StatusOK).Send(message)
+	if err := c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message":     message,
+		"isFollowing": !alreadyFollowing,
+	}); err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
+	}
 }
