@@ -101,12 +101,18 @@ func (p PostHandler) CreatePost(c *fiber.Ctx) {
 	}
 }
 
+/**
+ * @Body {title: string, description: string}
+ * @Params /:id
+ * @Mothod PUT
+ * @Protected ✔️
+ */
 func (p PostHandler) UpdatePost(c *fiber.Ctx) {
 	user := c.Locals("user").(models.User)
 
 	postId, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		c.Status(fiber.StatusInternalServerError).Send(err)
+		c.Status(fiber.StatusBadRequest).Send(err)
 		return
 	}
 
@@ -146,12 +152,17 @@ func (p PostHandler) UpdatePost(c *fiber.Ctx) {
 		return
 	}
 
-	if err := c.Status(201).JSON(post); err != nil {
-		c.Status(500).Send(err)
+	if err := c.Status(fiber.StatusOK).JSON(post); err != nil {
+		c.Status(fiber.StatusInternalServerError).Send(err)
 		return
 	}
 }
 
+/**
+ * @Params /:id
+ * @Mothod DELETE
+ * @Protected ✔️
+ */
 func (p PostHandler) DeletePost(c *fiber.Ctx) {
 	user := c.Locals("user").(models.User)
 
