@@ -201,6 +201,11 @@ func (p PostHandler) DeletePost(c *fiber.Ctx) {
 	c.Status(fiber.StatusOK).Send("Post deleted successfully")
 }
 
+/**
+ * @Params /:id
+ * @Mothod POST
+ * @Protected ✔️
+ */
 func (P PostHandler) LikeDislikePost(c *fiber.Ctx) {
 	user := c.Locals("user").(models.User)
 
@@ -262,7 +267,13 @@ func (P PostHandler) LikeDislikePost(c *fiber.Ctx) {
 		message = "Post Liked"
 	}
 
-	c.Status(fiber.StatusOK).Send(message)
+	if err := c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": message,
+		"isLiked": notLikedYet,
+	}); err != nil {
+		c.Status(fiber.StatusBadRequest).Send(err)
+		return
+	}
 }
 
 func (p PostHandler) UserTimeline(c *fiber.Ctx) {
@@ -328,11 +339,16 @@ func (p PostHandler) UserTimeline(c *fiber.Ctx) {
 		}
 	}
 
+	type Data struct {
+		Count int32                    `json:"count"`
+		Posts []models.PostWithComment `json:"posts"`
+	}
+
 	// Close the cursor once finished
 	cur.Close(c.Fasthttp)
-	err = c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"posts": posts,
-		"count": len(posts),
+	err = c.Status(fiber.StatusOK).JSON(Data{
+		Posts: posts,
+		Count: int32(len(posts)),
 	})
 
 	if err != nil {

@@ -365,5 +365,180 @@ func TestPostsRoute(t *testing.T) {
 				g.Assert(resp.StatusCode).Equal(500)
 			})
 		})
+
+		g.Describe("Like/dislike Post Route Suits", func() {
+			g.It("return 400 on invalid inputs @LIKE_DISLIKE_POST", func() {
+				// first step is to signup the user
+				resp, userInputs, _ := TSignup(app)
+				g.Assert(resp.StatusCode).Equal(201)
+
+				// sec step is to login the user
+				resp, userLogin := TLogin(app, TLoginInputs{
+					Email:    userInputs.Email,
+					Password: userInputs.Password,
+				})
+				g.Assert(resp.StatusCode).Equal(200)
+
+				req := MakeRequest(Req{
+					Method: "POST",
+					Target: "/api/v1/post/123",
+					Options: Opt{
+						Header: Map{
+							"Authorization": "Bearer " + userLogin.Data.Token,
+						},
+					},
+				})
+
+				resp, _ = app.Test(req, -1)
+
+				g.Assert(resp.StatusCode).Equal(400)
+			})
+
+			g.It("returns 401 on valid inputs but invalid auth token @LIKE_DISLIKE_POST", func() {
+				// first step is to signup the user
+				resp, userInputs, _ := TSignup(app)
+				g.Assert(resp.StatusCode).Equal(201)
+
+				// sec step is to login the user
+				resp, userLogin := TLogin(app, TLoginInputs{
+					Email:    userInputs.Email,
+					Password: userInputs.Password,
+				})
+				g.Assert(resp.StatusCode).Equal(200)
+
+				// create a post
+				resp, _, post := TCreatePost(app, userLogin.Data.Token)
+
+				// assert for success
+				g.Assert(resp.StatusCode).Equal(201)
+
+				req := MakeRequest(Req{
+					Method: "POST",
+					Target: "/api/v1/post/" + post.ID,
+				})
+
+				resp, _ = app.Test(req, -1)
+				g.Assert(resp.StatusCode).Equal(401)
+			})
+
+			g.It("return 200 on successfully like or dislike a post @LIKE_DISLIKE_POST", func() {
+				// first step is to signup the user
+				resp, userInputs, _ := TSignup(app)
+				g.Assert(resp.StatusCode).Equal(201)
+
+				// sec step is to login the user
+				resp, userLogin := TLogin(app, TLoginInputs{
+					Email:    userInputs.Email,
+					Password: userInputs.Password,
+				})
+				g.Assert(resp.StatusCode).Equal(200)
+
+				// create a post
+				resp, _, output := TCreatePost(app, userLogin.Data.Token)
+
+				// assert for success
+				g.Assert(resp.StatusCode).Equal(201)
+
+				req := MakeRequest(Req{
+					Method: "POST",
+					Target: "/api/v1/post/" + output.ID,
+					Options: Opt{
+						Header: Map{
+							"Authorization": "Bearer " + userLogin.Data.Token,
+						},
+					},
+				})
+
+				resp, _ = app.Test(req, -1)
+				g.Assert(resp.StatusCode).Equal(200)
+
+				var likeDislikeResp struct {
+					Message string `json:"message"`
+					IsLiked bool   `json:"isLiked"`
+				}
+
+				err := json.NewDecoder(resp.Body).Decode(&likeDislikeResp)
+				if err != nil {
+					panic(err)
+				}
+
+				g.Assert(likeDislikeResp.IsLiked).IsTrue()
+
+				// now try to dislike the post
+				req = MakeRequest(Req{
+					Method: "POST",
+					Target: "/api/v1/post/" + output.ID,
+					Options: Opt{
+						Header: Map{
+							"Authorization": "Bearer " + userLogin.Data.Token,
+						},
+					},
+				})
+
+				resp, _ = app.Test(req, -1)
+				g.Assert(resp.StatusCode).Equal(200)
+				err = json.NewDecoder(resp.Body).Decode(&likeDislikeResp)
+				if err != nil {
+					panic(err)
+				}
+
+				g.Assert(likeDislikeResp.IsLiked).IsFalse()
+			})
+		})
+
+		g.Describe("Home Timeline Routes Suits", func() {
+			g.It("returns 200 on home timeline route @TIMELINE", func() {
+				req := MakeRequest(Req{
+					Method: "GET",
+					Target: "/api/v1/post/timeline/home",
+				})
+
+				type TimelineResp struct {
+					Count int32         `json:"count"`
+					Posts []interface{} `json:"posts"`
+				}
+
+				var homeTimelineResp TimelineResp
+
+				resp, _ := app.Test(req, -1)
+				g.Assert(resp.StatusCode).Equal(200)
+
+				err := json.NewDecoder(resp.Body).Decode(&homeTimelineResp)
+				if err != nil {
+					panic(err)
+				}
+
+				g.Assert(len(homeTimelineResp.Posts)).Equal(0)
+				assert.NotNil(t, homeTimelineResp.Count)
+			})
+		})
+
+		g.Describe("User Timeline Routes Suits", func() {
+			g.It("returns 200 on user timeline route @TIMELINE", func() {
+				resp, _, user := TSignup(app)
+				g.Assert(resp.StatusCode).Equal(201)
+
+				req := MakeRequest(Req{
+					Method: "GET",
+					Target: "/api/v1/post/timeline/user/" + user.ID,
+				})
+
+				type TimelineResp struct {
+					Count int32         `json:"count"`
+					Posts []interface{} `json:"posts"`
+				}
+				var userTimelineResp TimelineResp
+				resp, _ = app.Test(req, -1)
+				g.Assert(resp.StatusCode).Equal(200)
+
+				err := json.NewDecoder(resp.Body).Decode(&userTimelineResp)
+				if err != nil {
+					panic(err)
+				}
+
+				g.Assert(len(userTimelineResp.Posts)).Equal(0)
+				assert.NotNil(t, userTimelineResp.Count)
+			})
+		})
 	})
 }
