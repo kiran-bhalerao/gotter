@@ -25,6 +25,12 @@ type CommentHandlerInterface interface {
 	GetComment(c *fiber.Ctx) interface{}
 }
 
+/**
+ * @Route /comment
+ * @Body {postId: string, message: string}
+ * @Mothod POST
+ * @Protected ✔️
+ */
 func (CH CommentHandler) CommentPost(c *fiber.Ctx) {
 	user := c.Locals("user").(models.User)
 
@@ -79,7 +85,7 @@ func (CH CommentHandler) CommentPost(c *fiber.Ctx) {
 		return
 	}
 
-	if err := c.Status(fiber.StatusOK).JSON(comment); err != nil {
+	if err := c.Status(fiber.StatusCreated).JSON(comment); err != nil {
 		c.Status(fiber.StatusInternalServerError).Send(err)
 		return
 	}
