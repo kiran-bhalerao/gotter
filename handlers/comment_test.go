@@ -131,5 +131,34 @@ func TestCommentsRoute(t *testing.T) {
 				g.Assert(resp.StatusCode).Equal(201)
 			})
 		})
+
+		g.Describe("Delete Comment Route Suits", func() {
+			g.It("returns 400 on invalid inputs @DELETE_COMMENT", func() {
+				// first step is to signup the user
+				resp, userInputs, _ := TSignup(app)
+				g.Assert(resp.StatusCode).Equal(201)
+
+				// sec step is to login the user
+				resp, userLogin := TLogin(app, TLoginInputs{
+					Email:    userInputs.Email,
+					Password: userInputs.Password,
+				})
+				g.Assert(resp.StatusCode).Equal(200)
+
+				req := MakeRequest(Req{
+					Method: "POST",
+					Target: "/api/v1/comment/123",
+					Options: Opt{
+						Header: Map{
+							"Authorization": "Bearer " + userLogin.Data.Token,
+						},
+					},
+				})
+
+				resp, _ = app.Test(req, -1)
+
+				g.Assert(resp.StatusCode).Equal(400)
+			})
+		})
 	})
 }
